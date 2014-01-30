@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 # python script-stripper-all.py  1.18s user 0.02s system 99% cpu 1.208 total
 
+from collections import defaultdict
+import argparse
 import os
+import re
 import sys
+import zlib
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle  # noqa
+import six
 
 
 NUM_WORDS = ('one', 'two', 'three', 'four', 'five', 'six', 'seven')
+CHAR_RE = re.compile(r"[^\w\-']+")
 
 _ROOT = os.path.abspath(os.path.dirname(__file__))
 
@@ -19,8 +21,8 @@ def get_data(path):
     return os.path.join(_ROOT, 'data', path)
 
 
-def main():
-    lines = {}
+def main(only_characters=None):
+    lines = defaultdict(list)
 
     # check every script for all seasons
     for season_num in NUM_WORDS:
@@ -45,7 +47,7 @@ def main():
                         for name in splited:
                             # charector names are uppercase
                             if name.isupper():
-                                charname = name
+                                charname = CHAR_RE.sub('-', name).lower()
                                 record = True
                                 dbuffer = ""
                                 break
@@ -58,26 +60,33 @@ def main():
                             dbuffer = dbuffer.replace("\r", "").replace("\n", "")
                             dbuffer = dbuffer.replace("\a", "").strip()
                             dbuffer = ' '.join(dbuffer.split())
-                            line = {"text": dbuffer,
-                                    "episode": script_file.replace('.htm', ''),
-                                    "word_count": len(dbuffer.split())}
+                            line = map(str, (
+                                len(dbuffer.split()),
+                                script_file.replace('.htm', ''),
+                                dbuffer
+                            ))
                             record = False
-                            if charname in lines:
-                                lines[charname].append(line)
-                            else:
-                                lines[charname] = [line]
 
-    with open(get_data('all_characters.pickle'), 'wb') as pickle_file:
-        pickle.dump(lines, pickle_file)
+                            if only_characters is not None and charname not in only_characters:
+                                continue
 
-    stats = []
-    for name in lines:
-        stats.append([len(lines[name]), name])
-    stats.sort()
+                            lines[charname].append(line)
 
+    for character, char_lines in lines.items():
+        with open(get_data(character), 'wb') as fh:
+            data = '\n'.join(map(';'.join, char_lines))
+            small = zlib.compress(six.b(data))
+            fh.write(small)
+
+    stats = sorted((len(l), n) for n, l in lines.items())
     for num_lines, name in stats:
         sys.stdout.write('{}: {} lines parsed\n'.format(name, num_lines))
 
 
 if __name__ == '__main__':
-    main()
+    cli = argparse.ArgumentParser()
+    cli.add_argument('-c', '--character', nargs='+', required=False)
+
+    opts = cli.parse_args()
+
+    main(opts.character)
