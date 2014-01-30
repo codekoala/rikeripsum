@@ -37,14 +37,14 @@ def main(only_characters=None):
                 # look for pattern indicating charector name
                 for data in f:
                     if "<p>" in data and "<br>" in data:
-                        splited = data.split("<p>")[-1].split("<br>")[0]
-                        splited = splited.split("'S")[0].split(" ")
+                        bits = data.split("<p>")[-1].split("<br>")[0]
+                        bits = bits.split("'S")[0].split(" ")
 
                         # long list of words probably isnt a name
-                        if len(splited) > 5:
+                        if len(bits) > 5:
                             continue
 
-                        for name in splited:
+                        for name in bits:
                             # charector names are uppercase
                             if name.isupper():
                                 charname = CHAR_RE.sub('-', name).lower()
@@ -67,10 +67,8 @@ def main(only_characters=None):
                             ))
                             record = False
 
-                            if only_characters is not None and charname not in only_characters:
-                                continue
-
-                            lines[charname].append(line)
+                            if only_characters is None or charname in only_characters:
+                                lines[charname].append(line)
 
     for character, char_lines in lines.items():
         with open(get_data(character), 'wb') as fh:
