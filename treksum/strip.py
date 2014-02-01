@@ -78,6 +78,7 @@ def process_script(fh):
             dbuffer += data
             if "</p>" in data:
                 dbuffer = reduce(_stripper, REPLACE, dbuffer).strip()
+                dbuffer = dbuffer.replace('&quot;', '"')
                 words = dbuffer.split()
 
                 # clean up the spacing

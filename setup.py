@@ -1,4 +1,9 @@
-from distutils.core import setup
+from setuptools import setup
+from glob import glob
+
+
+DATA = list(glob('treksum/data/*.gzc'))
+
 
 setup(
     name='treksum',
@@ -6,16 +11,15 @@ setup(
     packages=['treksum'],
     license='Creative Commons Attribution-Noncommercial-Share Alike license',
     data_files=[(
-        'data', [
-            'treksum/data/riker.gzc'
-        ]
+        'data', DATA
     )],
     package_data={
-        '': ['*.gzc', 'data/riker.gzc'],
+        '': ['*.gzc'] + [d.lstrip('treksum/') for d in DATA],
     },
     include_package_data=True,
     entry_points={
-        'console_scripts':
-        ['treksum=treksum:main'],
+        'console_scripts': [
+            'treksum = treksum.treksum:main'
+        ],
     }
 )
