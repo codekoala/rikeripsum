@@ -1,20 +1,20 @@
 #!/usr/bin/env python
 
 import argparse
+import gzip
 import os
-import pickle
 import random
 
-lines = None
-
 _ROOT = os.path.abspath(os.path.dirname(__file__))
+DEFAULT_CHAR = 'riker'
+LINES = {}
 
 
 def get_data(path):
-    return os.path.join(_ROOT, 'data', path)
+    return os.path.join(_ROOT, 'data', '{}.gzc'.format(path))
 
 
-def generate_paragraph(sentence_count=None):
+def generate_paragraph(sentence_count=None, character=DEFAULT_CHAR):
     """Generates a 'paragraph' consisting of sentence_count 'sentences'.
     If sentence_count is not provided, a random number between two and
     ten will be chosen.
@@ -26,12 +26,12 @@ def generate_paragraph(sentence_count=None):
 
     paragraph = ''
     for i in range(sentence_count):
-        paragraph += ' ' + generate_sentence()
+        paragraph += ' ' + generate_sentence(character=character)
 
     return paragraph.strip()
 
 
-def generate_sentence(word_count=None):
+def generate_sentence(word_count=None, character=DEFAULT_CHAR):
     """Returns a 'sentence'. A sentence is actually one line of dialog
     by William Riker, and may in fact consiste of multiple sentences.
     If a word_count is provided, the generator will attempt to return
@@ -41,50 +41,56 @@ def generate_sentence(word_count=None):
 
     """
 
-    global lines
+    if character not in LINES:
+        LINES[character] = load_data(character)
 
-    if not lines:
-        lines = load_pickle()
+    pool = LINES[character][:]
+    if word_count:
+        pool = [
+            line for line in pool
+            if line['word_count'] == word_count
+        ]
 
-    if not word_count:
-        return random.choice(lines)['text']
-
-    potential_matches = [
-        line for line in lines
-        if line['word_count'] == word_count
-    ]
-
-    if potential_matches:
-        return random.choice(potential_matches)['text']
-    else:
+    if not pool:
         if word_count == 1:
             raise ImpossibleSentenceError(
                 "Couldn't generate a sentence with the requested number of "
                 "words."
             )
 
-        # recursive callback, trying one less words each time.
-        return generate_sentence(word_count - 1)
+        else:
+            # recursive callback, trying one less words each time.
+            return generate_sentence(word_count - 1, character)
+
+    return random.choice(pool)['text']
 
 
-def load_pickle():
+def load_data(character=DEFAULT_CHAR):
     """Loads up sentence data. All methods in this class which use
     phrase data should call this if global lines == None.
 
     """
 
-    f = open(get_data('riker.pickle'))
-    return pickle.load(f)
+    lines = []
+    with gzip.open(get_data(character), 'rb') as fh:
+        for line in fh:
+            wc, ep, text = line.decode('utf-8').strip().split(';', 2)
+            lines.append({
+                'text': text,
+                'episode': ep,
+                'word_count': int(wc),
+            })
+
+    return lines
 
 
 class ImpossibleSentenceError(Exception):
-    """Called when the engine is unable to fufill the request due to lack
-    of potential data. This would usually be raised if a number of sentences
-    was requested which the engine did not have data to fulfill.
+    """
+    Called when the engine is unable to fufill the request due to lack of
+    potential data. This would usually be raised if a number of sentences was
+    requested which the engine did not have data to fulfill.
 
     """
-    def __init__(self, message, Errors):
-        Exception.__init__(self, message)
 
 
 def main():
@@ -93,8 +99,12 @@ def main():
     parser.add_argument('-c', '--count', dest='count', type=int,
                         help='minimum number of words in the sentence')
 
+    parser.add_argument('-s', '--speaker', default=DEFAULT_CHAR,
+                        help='name of the character to grab quotes from')
+
     args = parser.parse_args()
-    print(generate_sentence(args.count))
+
+    print(generate_sentence(args.count, args.speaker))
 
 
 if __name__ == '__main__':

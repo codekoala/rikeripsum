@@ -1,5 +1,1 @@
-import rikeripsum
-
-
-def main():
-    rikeripsum.main()
+from treksum import main, get_data
